@@ -6,6 +6,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import BotCommand
 
 from config import load_config
 from handlers import admin, download, start
@@ -47,6 +48,14 @@ async def main() -> None:
     dp.include_router(download.router)
 
     await bot.delete_webhook(drop_pending_updates=True)
+
+    # Bosh menyu (ko'k "Menu" tugmasi ostidagi komandalar)
+    await bot.set_my_commands([
+        BotCommand(command="start", description="🔄 Boshlash / Старт"),
+        BotCommand(command="help", description="ℹ️ Yordam / Помощь"),
+        BotCommand(command="til", description="🌐 Til / Язык"),
+    ])
+
     logger.info("Bot ishga tushdi")
     await dp.start_polling(bot)
 
