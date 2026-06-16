@@ -8,8 +8,61 @@ from services import ffmpeg_setup
 
 
 class DownloadError(Exception):
-    """yt-dlp video/audio yuklab olishda xatolikka uchraganda chiqariladi."""
+    """yt-dlp xatolikka uchraganda chiqariladi."""
 
+
+# --- TEZ USUL: faqat to'g'ridan-to'g'ri havola olish (yuklab olmasdan) ---
+
+def _extract_sync(url: str) -> dict:
+    """Videoni YUKLAMASDAN, faqat ma'lumotini oladi.
+
+    Qaytaradi: {"direct_url", "title", "filesize", "ext", "is_progressive"}
+    """
+    opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "noplaylist": True,
+        # Audio+video bitta faylda bo'lgan (merge talab qilmaydigan)
+        # progressiv formatni afzal ko'ramiz — Instagram aynan shunaqa beradi.
+        "format": (
+            "best[ext=mp4][acodec!=none][vcodec!=none]/"
+            "best[acodec!=none][vcodec!=none]/best"
+        ),
+    }
+
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+    except yt_dlp.utils.DownloadError as exc:
+        raise DownloadError(str(exc)) from exc
+
+    # Tanlangan formatning to'g'ridan-to'g'ri havolasi
+    direct_url = info.get("url")
+    # Ba'zan url tepa darajada bo'lmaydi — formats ichidan olamiz
+    if not direct_url:
+        formats = info.get("requested_formats") or []
+        if len(formats) == 1:
+            direct_url = formats[0].get("url")
+
+    filesize = info.get("filesize") or info.get("filesize_approx")
+
+    return {
+        "direct_url": direct_url,
+        "title": info.get("title") or "",
+        "filesize": filesize,  # baytlarda yoki None
+        "ext": info.get("ext") or "mp4",
+        # merge kerakmi? (requested_formats >1 bo'lsa — kerak)
+        "needs_merge": bool(info.get("requested_formats")
+                            and len(info["requested_formats"]) > 1),
+    }
+
+
+async def extract_info(url: str) -> dict:
+    """Videoni yuklamasdan ma'lumotini oladi (tez usul uchun)."""
+    return await asyncio.to_thread(_extract_sync, url)
+
+
+# --- ZAXIRA USUL: faylni serverga yuklab olish (URL ishlamaganda) ---
 
 def _build_opts(fmt: str, output_template: str) -> dict:
     base_opts = {
@@ -17,12 +70,9 @@ def _build_opts(fmt: str, output_template: str) -> dict:
         "noplaylist": True,
         "quiet": True,
         "no_warnings": True,
-        # Instagram'ning ba'zi (private/login talab qiladigan) postlari uchun
-        # tarmoqdan eksport qilingan cookies fayl kerak bo'lishi mumkin:
         # "cookiefile": "data/instagram_cookies.txt",
     }
 
-    # ffmpeg papkasini to'g'ridan-to'g'ri yt-dlp'ga beramiz
     if ffmpeg_setup.FFMPEG_DIR:
         base_opts["ffmpeg_location"] = ffmpeg_setup.FFMPEG_DIR
 
@@ -40,11 +90,10 @@ def _build_opts(fmt: str, output_template: str) -> dict:
             }
         )
     else:
-        base_opts.update(
-            {
-                "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-                "merge_output_format": "mp4",
-            }
+        # Bitta progressiv fayl (merge yo'q) — kichik va tez
+        base_opts["format"] = (
+            "best[ext=mp4][acodec!=none][vcodec!=none]/"
+            "best[acodec!=none][vcodec!=none]/best"
         )
 
     return base_opts
@@ -59,20 +108,13 @@ def _download_sync(url: str, fmt: str, download_dir: str) -> tuple[str, str]:
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=True)
             final_path = ydl.prepare_filename(info)
-
             if fmt == "audio":
-                # FFmpegExtractAudio fayl kengaytmasini .mp3 ga o'zgartiradi
                 final_path = os.path.splitext(final_path)[0] + ".mp3"
-
-            title = info.get("title") or ""
-            return final_path, title
+            return final_path, info.get("title") or ""
     except yt_dlp.utils.DownloadError as exc:
         raise DownloadError(str(exc)) from exc
 
 
 async def download_media(url: str, fmt: str, download_dir: str) -> tuple[str, str]:
-    """Video/audio'ni asinxron tarzda yuklab oladi (alohida threadda).
-
-    Qaytaradi: (fayl_yo'li, video_sarlavhasi)
-    """
+    """Video/audio'ni serverga yuklab oladi (zaxira usul)."""
     return await asyncio.to_thread(_download_sync, url, fmt, download_dir)
