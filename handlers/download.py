@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import re
@@ -23,6 +24,24 @@ logger = logging.getLogger(__name__)
 
 URL_PATTERN = re.compile(r"(https?://\S+)")
 URL_SEND_LIMIT_MB = 20
+
+# Status xabarini "jonli" o'zgartirish orasidagi pauza (Telegram flood'dan
+# qochish uchun). Sekundiga ~1 marta tahrir xavfsiz.
+MORPH_DELAY = 0.6
+
+
+async def _morph(status: Message, text: str, delay: float = MORPH_DELAY) -> None:
+    """Status xabarini yangi matnga 'parchalanish' effekti bilan o'zgartiradi.
+
+    Telegram bitta xabarni edit qilganda harflarni almashtirib, tabiiy
+    morfing animatsiyasini ko'rsatadi. Orasiga pauza qo'yamiz.
+    """
+    try:
+        await status.edit_text(text)
+        await asyncio.sleep(delay)
+    except TelegramBadRequest:
+        # Matn bir xil bo'lsa yoki tez-tez tahrir bo'lsa — e'tiborsiz qoldiramiz
+        pass
 
 pending_links: dict[str, str] = {}
 
@@ -50,6 +69,15 @@ def format_keyboard(lang: str, link_id: str) -> InlineKeyboardMarkup:
             [InlineKeyboardButton(text=t(lang, "btn_audio"), callback_data=f"dl:audio:{link_id}")],
         ]
     )
+
+
+def subscribe_text(lang: str, channels: list[dict]) -> str:
+    """Majburiy obuna xabari + kanal nomlari ro'yxati."""
+    lines = [t(lang, "must_subscribe"), ""]
+    for i, ch in enumerate(channels, 1):
+        name = ch["title"] or ch["username"] or "Kanal"
+        lines.append(f"{i}. 📢 <b>{name}</b>")
+    return "\n".join(lines)
 
 
 def subscribe_keyboard(lang: str, channels: list[dict], link_id: str) -> InlineKeyboardMarkup:
@@ -93,7 +121,7 @@ async def _check_gate(message: Message, user_id: int, bot: Bot, config: Config, 
 
     if unsub:
         await message.answer(
-            t(lang, "must_subscribe"),
+            subscribe_text(lang, unsub),
             reply_markup=subscribe_keyboard(lang, unsub, link_id),
         )
         return False
@@ -145,7 +173,8 @@ async def recheck_sub(callback: CallbackQuery, bot: Bot, config: Config) -> None
         await callback.message.edit_text(t(lang, "subscribed_ok"))
 
 
-async def _send_via_url(message: Message, url: str, status: Message) -> bool:
+async def _send_via_url(message: Message, url: str, status: Message, lang: str) -> bool:
+    await _morph(status, t(lang, "step_checking"))
     try:
         info = await extract_info(url)
     except Exception:  # noqa: BLE001
@@ -158,6 +187,8 @@ async def _send_via_url(message: Message, url: str, status: Message) -> bool:
     small_enough = (filesize_mb is None) or (filesize_mb <= URL_SEND_LIMIT_MB)
 
     if direct_url and not info["needs_merge"] and small_enough:
+        await _morph(status, t(lang, "step_found"))
+        await _morph(status, t(lang, "step_sending"))
         try:
             await message.answer_video(direct_url, caption=caption)
             await status.delete()
@@ -168,7 +199,7 @@ async def _send_via_url(message: Message, url: str, status: Message) -> bool:
 
 
 async def _download_and_send(message: Message, url: str, fmt: str, status: Message, config: Config, lang: str) -> None:
-    await status.edit_text(t(lang, "downloading"))
+    await _morph(status, t(lang, "step_downloading"))
     try:
         file_path, title = await download_media(url, fmt, config.download_dir)
     except DownloadError:
@@ -184,6 +215,7 @@ async def _download_and_send(message: Message, url: str, fmt: str, status: Messa
         if size_mb > config.max_file_size_mb:
             await status.edit_text(t(lang, "too_big", size=size_mb, limit=config.max_file_size_mb))
             return
+        await _morph(status, t(lang, "step_sending"))
         caption = title[:1000] if title else None
         if fmt == "audio":
             await message.answer_audio(FSInputFile(file_path), caption=caption)
@@ -217,7 +249,7 @@ async def handle_choice(callback: CallbackQuery, bot: Bot, config: Config) -> No
     await _notify_auto_disabled(bot, config)
     if unsub:
         await callback.message.edit_text(
-            t(lang, "must_subscribe"),
+            subscribe_text(lang, unsub),
             reply_markup=subscribe_keyboard(lang, unsub, link_id),
         )
         return
@@ -225,7 +257,7 @@ async def handle_choice(callback: CallbackQuery, bot: Bot, config: Config) -> No
     status = await callback.message.edit_text(t(lang, "preparing"))
 
     if fmt == "fast":
-        if await _send_via_url(callback.message, url, status):
+        if await _send_via_url(callback.message, url, status, lang):
             await db.increment_downloads()
             pending_links.pop(link_id, None)
             return

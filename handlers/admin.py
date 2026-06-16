@@ -221,24 +221,20 @@ async def addch_receive(message: Message, state: FSMContext, bot: Bot, config: C
         member_count=count,
     )
 
+    # HAR DOIM referral (taklif) havolasini so'raymiz — kanal egasi bergan
+    # havola orqali obunachilar borishi va egada statistika to'g'ri bo'lishi uchun.
+    await state.set_state(AddChannel.waiting_invite)
+    hint = ""
     if username:
-        # Ochiq kanal — invite link avtomatik
-        await state.update_data(invite_link=f"https://t.me/{username}")
-        await state.set_state(AddChannel.waiting_target)
-        await message.answer(
-            f"✅ Kanal: <b>{chat.title}</b> (hozir {count} obunachi)\n\n"
-            "Endi <b>obunachi limitini</b> yuboring (kanal shu songa yetganda "
-            "majburiy obuna avtomatik o'chadi).\n"
-            "Cheksiz bo'lsa <b>0</b> yuboring."
+        hint = (
+            f"\n\n(Agar oddiy ochiq havola yetarli bo'lsa, <b>-</b> yuboring — "
+            f"https://t.me/{username} ishlatiladi.)"
         )
-    else:
-        # Yopiq kanal — taklif havolasi kerak
-        await state.set_state(AddChannel.waiting_invite)
-        await message.answer(
-            f"✅ Kanal: <b>{chat.title}</b> (hozir {count} obunachi)\n\n"
-            "Bu yopiq kanal. Foydalanuvchilarga ko'rsatish uchun "
-            "<b>taklif havolasini</b> (https://t.me/+...) yuboring."
-        )
+    await message.answer(
+        f"✅ Kanal: <b>{chat.title}</b> (hozir {count} obunachi)\n\n"
+        "Endi foydalanuvchilarga ko'rsatiladigan <b>taklif/referral havolani</b> "
+        "yuboring (kanal egasi bergan https://t.me/+... havola)." + hint
+    )
 
 
 @router.message(AddChannel.waiting_invite)
@@ -246,14 +242,23 @@ async def addch_invite(message: Message, state: FSMContext, config: Config) -> N
     if not _is_admin(message.from_user.id, config):
         return
     link = (message.text or "").strip()
-    if not link.startswith("http"):
-        await message.answer("❌ To'g'ri havola yuboring (https://t.me/+...).\n\nBekor: /cancel")
+    data = await state.get_data()
+
+    # "-" yuborilsa va kanal ochiq bo'lsa — oddiy @username havolasi
+    if link == "-" and data.get("username"):
+        link = f"https://t.me/{data['username']}"
+    elif not link.startswith("http"):
+        await message.answer(
+            "❌ To'g'ri havola yuboring (https://t.me/+... yoki https://t.me/...).\n\n"
+            "Bekor: /cancel"
+        )
         return
+
     await state.update_data(invite_link=link)
     await state.set_state(AddChannel.waiting_target)
     await message.answer(
-        "Endi <b>obunachi limitini</b> yuboring (yetganda majburiy obuna "
-        "avtomatik o'chadi). Cheksiz bo'lsa <b>0</b> yuboring."
+        "Endi <b>obunachi limitini</b> yuboring (kanal shu songa yetganda "
+        "majburiy obuna avtomatik o'chadi). Cheksiz bo'lsa <b>0</b> yuboring."
     )
 
 
