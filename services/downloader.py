@@ -20,7 +20,12 @@ FORMAT_MAP = {
         "best[ext=mp4][acodec!=none][vcodec!=none]/"
         "best[acodec!=none][vcodec!=none]/best"
     ),
-    "best": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+    # 720p gacha cheklangan — sifatli, lekin hajm odatda 50MB ichida
+    "best": (
+        "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/"
+        "best[height<=720][ext=mp4]/"
+        "best[height<=720]/best"
+    ),
     "audio": "bestaudio/best",
 }
 
