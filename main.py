@@ -2,6 +2,13 @@ import asyncio
 import logging
 import os
 
+# ffmpeg va ffprobe binarlarini PATH ga qo'shadi (BotHost'ning aiogram
+# shabloni tizimda ffmpeg o'rnatmaydi, shu sabab shart). Birinchi ishga
+# tushishda binarlar avtomatik yuklab olinadi, so'ng keshlanadi.
+import static_ffmpeg
+
+static_ffmpeg.add_paths()
+
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
