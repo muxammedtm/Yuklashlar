@@ -2,19 +2,13 @@ import asyncio
 import logging
 import os
 
-# ffmpeg va ffprobe binarlarini PATH ga qo'shadi (BotHost'ning aiogram
-# shabloni tizimda ffmpeg o'rnatmaydi, shu sabab shart). Birinchi ishga
-# tushishda binarlar avtomatik yuklab olinadi, so'ng keshlanadi.
-import static_ffmpeg
-
-static_ffmpeg.add_paths()
-
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
 from config import load_config
 from handlers import download, start
+from services.ffmpeg_setup import setup_ffmpeg
 
 logging.basicConfig(
     level=logging.INFO,
@@ -26,6 +20,10 @@ logger = logging.getLogger(__name__)
 async def main() -> None:
     config = load_config()
     os.makedirs(config.download_dir, exist_ok=True)
+
+    # ffmpeg/ffprobe ni tayyorlaymiz (birinchi marta yuklab olinadi)
+    logger.info("ffmpeg tayyorlanmoqda...")
+    await asyncio.to_thread(setup_ffmpeg)
 
     bot = Bot(
         token=config.bot_token,
