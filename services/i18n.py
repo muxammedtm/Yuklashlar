@@ -33,6 +33,10 @@ TEXTS = {
         "btn_audio": "🎵 Audio (mp3)",
         "preparing": "⏳ Tayyorlanmoqda...",
         "downloading": "⏳ Yuklab olinmoqda...",
+        "step_checking": "🔍 Havola tekshirilmoqda...",
+        "step_found": "✅ Video topildi!",
+        "step_downloading": "⬇️ Yuklab olinmoqda...",
+        "step_sending": "📤 Yuborilmoqda...",
         "error": "❌ Xatolik yuz berdi. Keyinroq urinib ko'ring.",
         "too_big": (
             "❌ Fayl hajmi {size:.1f}MB — Telegram limiti ({limit}MB) dan katta.\n"
@@ -82,6 +86,10 @@ TEXTS = {
         "btn_audio": "🎵 Аудио (mp3)",
         "preparing": "⏳ Готовится...",
         "downloading": "⏳ Скачивается...",
+        "step_checking": "🔍 Проверяю ссылку...",
+        "step_found": "✅ Видео найдено!",
+        "step_downloading": "⬇️ Скачиваю...",
+        "step_sending": "📤 Отправляю...",
         "error": "❌ Произошла ошибка. Попробуйте позже.",
         "too_big": (
             "❌ Размер файла {size:.1f}MB — больше лимита Telegram ({limit}MB).\n"
