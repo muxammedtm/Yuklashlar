@@ -37,6 +37,17 @@ async def init_db() -> None:
             )
             """
         )
+        # Bot orqali obuna bo'lganlar (har kanal uchun, takrorlanmaydi)
+        await db.execute(
+            """
+            CREATE TABLE IF NOT EXISTS referrals (
+                channel_id INTEGER NOT NULL,
+                user_id    INTEGER NOT NULL,
+                created_at TEXT DEFAULT (datetime('now')),
+                PRIMARY KEY (channel_id, user_id)
+            )
+            """
+        )
         await db.commit()
 
         await _set_default(db, "total_downloads", "0")
@@ -115,6 +126,7 @@ async def add_channel(
 async def remove_channel(channel_id: int) -> None:
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("DELETE FROM channels WHERE id = ?", (channel_id,))
+        await db.execute("DELETE FROM referrals WHERE channel_id = ?", (channel_id,))
         await db.commit()
 
 
@@ -147,6 +159,31 @@ async def deactivate_channel(channel_id: int) -> None:
             "UPDATE channels SET active = 0 WHERE id = ?", (channel_id,)
         )
         await db.commit()
+
+
+# ---------------- Referrallar (bot orqali obuna bo'lganlar) ----------------
+
+async def add_referral(channel_id: int, user_id: int) -> bool:
+    """Bot orqali obunani qayd qiladi.
+
+    Yangi qo'shilsa True, allaqachon mavjud bo'lsa False qaytaradi.
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        cur = await db.execute(
+            "INSERT OR IGNORE INTO referrals (channel_id, user_id) VALUES (?, ?)",
+            (channel_id, user_id),
+        )
+        await db.commit()
+        return cur.rowcount > 0
+
+
+async def count_referrals(channel_id: int) -> int:
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT COUNT(*) FROM referrals WHERE channel_id = ?", (channel_id,)
+        ) as cur:
+            row = await cur.fetchone()
+            return row[0] if row else 0
 
 
 # ---------------- Sozlamalar ----------------
