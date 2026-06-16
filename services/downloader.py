@@ -11,58 +11,58 @@ class DownloadError(Exception):
     """yt-dlp xatolikka uchraganda chiqariladi."""
 
 
+# Format tanlovlari:
+#   "fast"  -> bitta tayyor progressiv fayl (merge yo'q, tez, lekin xira)
+#   "best"  -> eng yaxshi video+audio (kerak bo'lsa merge qilinadi, sifatli)
+#   "audio" -> faqat audio (mp3)
+FORMAT_MAP = {
+    "fast": (
+        "best[ext=mp4][acodec!=none][vcodec!=none]/"
+        "best[acodec!=none][vcodec!=none]/best"
+    ),
+    "best": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+    "audio": "bestaudio/best",
+}
+
+
 # --- TEZ USUL: faqat to'g'ridan-to'g'ri havola olish (yuklab olmasdan) ---
 
 def _extract_sync(url: str) -> dict:
-    """Videoni YUKLAMASDAN, faqat ma'lumotini oladi.
-
-    Qaytaradi: {"direct_url", "title", "filesize", "ext", "is_progressive"}
-    """
+    """Videoni YUKLAMASDAN ma'lumotini oladi (faqat 'fast' rejim uchun)."""
     opts = {
         "quiet": True,
         "no_warnings": True,
         "noplaylist": True,
-        # Audio+video bitta faylda bo'lgan (merge talab qilmaydigan)
-        # progressiv formatni afzal ko'ramiz — Instagram aynan shunaqa beradi.
-        "format": (
-            "best[ext=mp4][acodec!=none][vcodec!=none]/"
-            "best[acodec!=none][vcodec!=none]/best"
-        ),
+        "format": FORMAT_MAP["fast"],
     }
-
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=False)
     except yt_dlp.utils.DownloadError as exc:
         raise DownloadError(str(exc)) from exc
 
-    # Tanlangan formatning to'g'ridan-to'g'ri havolasi
     direct_url = info.get("url")
-    # Ba'zan url tepa darajada bo'lmaydi — formats ichidan olamiz
     if not direct_url:
         formats = info.get("requested_formats") or []
         if len(formats) == 1:
             direct_url = formats[0].get("url")
 
-    filesize = info.get("filesize") or info.get("filesize_approx")
-
     return {
         "direct_url": direct_url,
         "title": info.get("title") or "",
-        "filesize": filesize,  # baytlarda yoki None
+        "filesize": info.get("filesize") or info.get("filesize_approx"),
         "ext": info.get("ext") or "mp4",
-        # merge kerakmi? (requested_formats >1 bo'lsa — kerak)
-        "needs_merge": bool(info.get("requested_formats")
-                            and len(info["requested_formats"]) > 1),
+        "needs_merge": bool(
+            info.get("requested_formats") and len(info["requested_formats"]) > 1
+        ),
     }
 
 
 async def extract_info(url: str) -> dict:
-    """Videoni yuklamasdan ma'lumotini oladi (tez usul uchun)."""
     return await asyncio.to_thread(_extract_sync, url)
 
 
-# --- ZAXIRA USUL: faylni serverga yuklab olish (URL ishlamaganda) ---
+# --- YUKLAB OLISH USULI ---
 
 def _build_opts(fmt: str, output_template: str) -> dict:
     base_opts = {
@@ -70,31 +70,24 @@ def _build_opts(fmt: str, output_template: str) -> dict:
         "noplaylist": True,
         "quiet": True,
         "no_warnings": True,
+        "format": FORMAT_MAP.get(fmt, FORMAT_MAP["fast"]),
         # "cookiefile": "data/instagram_cookies.txt",
     }
 
     if ffmpeg_setup.FFMPEG_DIR:
         base_opts["ffmpeg_location"] = ffmpeg_setup.FFMPEG_DIR
 
+    if fmt == "best":
+        base_opts["merge_output_format"] = "mp4"
+
     if fmt == "audio":
-        base_opts.update(
+        base_opts["postprocessors"] = [
             {
-                "format": "bestaudio/best",
-                "postprocessors": [
-                    {
-                        "key": "FFmpegExtractAudio",
-                        "preferredcodec": "mp3",
-                        "preferredquality": "192",
-                    }
-                ],
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": "mp3",
+                "preferredquality": "192",
             }
-        )
-    else:
-        # Bitta progressiv fayl (merge yo'q) — kichik va tez
-        base_opts["format"] = (
-            "best[ext=mp4][acodec!=none][vcodec!=none]/"
-            "best[acodec!=none][vcodec!=none]/best"
-        )
+        ]
 
     return base_opts
 
@@ -110,11 +103,15 @@ def _download_sync(url: str, fmt: str, download_dir: str) -> tuple[str, str]:
             final_path = ydl.prepare_filename(info)
             if fmt == "audio":
                 final_path = os.path.splitext(final_path)[0] + ".mp3"
+            elif fmt == "best":
+                # merge natijasi .mp4 bo'ladi
+                base = os.path.splitext(final_path)[0]
+                if os.path.exists(base + ".mp4"):
+                    final_path = base + ".mp4"
             return final_path, info.get("title") or ""
     except yt_dlp.utils.DownloadError as exc:
         raise DownloadError(str(exc)) from exc
 
 
 async def download_media(url: str, fmt: str, download_dir: str) -> tuple[str, str]:
-    """Video/audio'ni serverga yuklab oladi (zaxira usul)."""
     return await asyncio.to_thread(_download_sync, url, fmt, download_dir)
