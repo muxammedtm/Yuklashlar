@@ -5,9 +5,11 @@ import os
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
+from aiogram.fsm.storage.memory import MemoryStorage
 
 from config import load_config
-from handlers import download, start
+from handlers import admin, download, start
+from services import db
 from services.ffmpeg_setup import setup_ffmpeg
 
 logging.basicConfig(
@@ -20,8 +22,13 @@ logger = logging.getLogger(__name__)
 async def main() -> None:
     config = load_config()
     os.makedirs(config.download_dir, exist_ok=True)
+    os.makedirs("data", exist_ok=True)
 
-    # ffmpeg/ffprobe ni tayyorlaymiz (birinchi marta yuklab olinadi)
+    # Ma'lumotlar bazasini tayyorlash
+    await db.init_db()
+    logger.info("Ma'lumotlar bazasi tayyor")
+
+    # ffmpeg/ffprobe tayyorlash
     logger.info("ffmpeg tayyorlanmoqda...")
     await asyncio.to_thread(setup_ffmpeg)
 
@@ -29,11 +36,13 @@ async def main() -> None:
         token=config.bot_token,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
-    dp = Dispatcher()
+    dp = Dispatcher(storage=MemoryStorage())
 
-    # config'ni barcha handlerlarga avtomatik tarzda yetkazib berish
+    # config'ni barcha handlerlarga yetkazib berish
     dp["config"] = config
 
+    # Routerlar tartibi muhim: admin va start (komandalar) avval, download keyin
+    dp.include_router(admin.router)
     dp.include_router(start.router)
     dp.include_router(download.router)
 
