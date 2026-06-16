@@ -4,6 +4,8 @@ import uuid
 
 import yt_dlp
 
+from services import ffmpeg_setup
+
 
 class DownloadError(Exception):
     """yt-dlp video/audio yuklab olishda xatolikka uchraganda chiqariladi."""
@@ -19,6 +21,10 @@ def _build_opts(fmt: str, output_template: str) -> dict:
         # tarmoqdan eksport qilingan cookies fayl kerak bo'lishi mumkin:
         # "cookiefile": "data/instagram_cookies.txt",
     }
+
+    # ffmpeg papkasini to'g'ridan-to'g'ri yt-dlp'ga beramiz
+    if ffmpeg_setup.FFMPEG_DIR:
+        base_opts["ffmpeg_location"] = ffmpeg_setup.FFMPEG_DIR
 
     if fmt == "audio":
         base_opts.update(
