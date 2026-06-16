@@ -128,10 +128,11 @@ async def recheck_sub(callback: CallbackQuery, bot: Bot, config: Config) -> None
     lang = await db.get_user_lang(callback.from_user.id) or "uz"
     link_id = callback.data.split(":")[1]
 
-    unsub = await subscription.get_unsubscribed(bot, callback.from_user.id)
+    # confirm_and_count: obuna bo'lganlarni sanaydi + target'ni tekshiradi
+    still_missing = await subscription.confirm_and_count(bot, callback.from_user.id)
     await _notify_auto_disabled(bot, config)
 
-    if unsub:
+    if still_missing:
         await callback.answer(t(lang, "not_subscribed"), show_alert=True)
         return
 

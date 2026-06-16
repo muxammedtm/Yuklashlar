@@ -69,13 +69,24 @@ async def adm_stats(callback: CallbackQuery, config: Config) -> None:
     active = sum(1 for c in channels if c["active"])
     enabled = (await db.get_setting("bot_enabled")) == "1"
 
-    text = (
-        "📊 <b>Statistika</b>\n\n"
-        f"👥 Foydalanuvchilar: <b>{users}</b>\n"
-        f"⬇️ Jami yuklashlar: <b>{downloads}</b>\n"
-        f"📢 Kanallar: <b>{len(channels)}</b> (faol: {active})\n"
-        f"⚙️ Bot holati: <b>{'🟢 yoqilgan' if enabled else '🔴 o‘chirilgan'}</b>"
-    )
+    lines = [
+        "📊 <b>Statistika</b>\n",
+        f"👥 Foydalanuvchilar: <b>{users}</b>",
+        f"⬇️ Jami yuklashlar: <b>{downloads}</b>",
+        f"📢 Kanallar: <b>{len(channels)}</b> (faol: {active})",
+        f"⚙️ Bot holati: <b>{'🟢 yoqilgan' if enabled else '🔴 o‘chirilgan'}</b>",
+    ]
+
+    if channels:
+        lines.append("\n<b>Kanallar bo'yicha (bot orqali obuna):</b>")
+        for ch in channels:
+            referrals = await db.count_referrals(ch["id"])
+            target_str = "∞" if not ch["target"] else str(ch["target"])
+            status = "🟢" if ch["active"] else "🔴"
+            name = ch["title"] or ch["username"] or str(ch["chat_id"])
+            lines.append(f"{status} {name}: <b>{referrals}/{target_str}</b>")
+
+    text = "\n".join(lines)
     await callback.message.edit_text(text, reply_markup=_back_menu())
 
 
@@ -293,12 +304,17 @@ async def adm_listch(callback: CallbackQuery, bot: Bot, config: Config) -> None:
     rows = []
     lines = ["📋 <b>Kanallar</b>\n"]
     for ch in channels:
-        count = await subscription.get_member_count(bot, ch["chat_id"])
-        count_str = str(count) if count is not None else "?"
+        referrals = await db.count_referrals(ch["id"])
+        members = await subscription.get_member_count(bot, ch["chat_id"])
+        members_str = str(members) if members is not None else "?"
         target_str = "∞" if not ch["target"] else str(ch["target"])
-        status = "🟢" if ch["active"] else "🔴"
+        status = "🟢" if ch["active"] else "🔴 (limit tugadi)"
         name = ch["title"] or ch["username"] or str(ch["chat_id"])
-        lines.append(f"{status} <b>{name}</b> — {count_str}/{target_str} obunachi")
+        lines.append(
+            f"{status} <b>{name}</b>\n"
+            f"   🎯 Bot orqali: <b>{referrals}/{target_str}</b>\n"
+            f"   👥 Jami obunachi: {members_str}"
+        )
         rows.append(
             [InlineKeyboardButton(
                 text=f"🗑 {name}", callback_data=f"adm:delch:{ch['id']}"
