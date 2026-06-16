@@ -121,9 +121,12 @@ async def adm_addch(callback: CallbackQuery, state: FSMContext, config: Config) 
     await state.set_state(AddChannel.waiting_channel)
     await callback.message.edit_text(
         "➕ <b>Kanal qo'shish</b>\n\n"
-        "Kanaldan biror postni shu yerga <b>forward</b> qiling "
-        "yoki kanal <code>@username</code> ini yuboring.\n\n"
+        "Quyidagilardan birini yuboring:\n"
+        "1) Kanaldan biror postni <b>forward</b> qiling, yoki\n"
+        "2) Ochiq kanal <code>@username</code> ini, yoki\n"
+        "3) Kanalning <b>raqamli ID</b> sini (masalan <code>-1001234567890</code>).\n\n"
         "⚠️ Bot o'sha kanalda <b>admin</b> bo'lishi shart!\n\n"
+        "💡 Yopiq kanal ID sini olish: kanaldan postni @getidsbot ga forward qiling.\n\n"
         "Bekor qilish: /cancel"
     )
 
@@ -140,18 +143,46 @@ async def addch_receive(message: Message, state: FSMContext, bot: Bot, config: C
     if chat is None and getattr(message, "forward_from_chat", None) is not None:
         chat = message.forward_from_chat
 
-    # 2) @username orqali
+    # 2) Raqamli ID orqali (-100... ko'rinishida) — yopiq kanallar uchun qulay
+    if chat is None and message.text:
+        raw = message.text.strip()
+        # -100123... yoki 123... ko'rinishidagi ID
+        if raw.lstrip("-").isdigit():
+            try:
+                chat = await bot.get_chat(int(raw))
+            except Exception:  # noqa: BLE001
+                await message.answer(
+                    "❌ Bu ID bo'yicha kanal topilmadi.\n"
+                    "ID to'g'ri ekanini va bot kanalda <b>admin</b> ekanini "
+                    "tekshiring.\n\nBekor: /cancel"
+                )
+                return
+
+    # 3) @username orqali
     if chat is None and message.text:
         uname = message.text.strip().lstrip("@")
         # t.me/username ko'rinishidan ham ajratamiz
         if "t.me/" in uname:
             uname = uname.split("t.me/")[-1].strip("/")
+        # Taklif havolasi (+...) bu yerda ishlamaydi — ogohlantiramiz
+        if uname.startswith("+"):
+            await message.answer(
+                "❌ Taklif havolasi (+...) orqali kanalni aniqlab bo'lmaydi.\n\n"
+                "Yopiq kanal uchun quyidagilardan birini qiling:\n"
+                "1) Kanaldan post <b>forward</b> qiling, yoki\n"
+                "2) Kanalning <b>raqamli ID</b> sini yuboring "
+                "(masalan <code>-1001234567890</code>).\n\n"
+                "💡 ID ni olish: kanalga @username_to_id_bot kabi yordamchi "
+                "botni qo'shing yoki kanaldan biror postni @getidsbot ga "
+                "forward qiling.\n\nBekor: /cancel"
+            )
+            return
         try:
             chat = await bot.get_chat(f"@{uname}")
         except Exception:  # noqa: BLE001
             await message.answer(
-                "❌ Kanal topilmadi. @username to'g'ri yuboring yoki "
-                "kanaldan post forward qiling.\n\nBekor: /cancel"
+                "❌ Kanal topilmadi. @username yoki raqamli ID yuboring, "
+                "yoki kanaldan post forward qiling.\n\nBekor: /cancel"
             )
             return
 
