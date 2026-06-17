@@ -4,9 +4,7 @@ from aiogram.types import (
     CallbackQuery,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
-    KeyboardButton,
     Message,
-    ReplyKeyboardMarkup,
 )
 
 from services import db
@@ -26,11 +24,21 @@ def lang_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def main_keyboard(lang: str) -> ReplyKeyboardMarkup:
-    """Pastdagi doimiy tugma — havola yuborishni osonlashtiradi."""
-    return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text=t(lang, "paste_button"))]],
-        resize_keyboard=True,
+def main_keyboard(lang: str) -> InlineKeyboardMarkup:
+    """Welcome xabari ostidagi tugmalar.
+
+    «YouTube'dan qidirish» tugmasi bosilganda chat input maydoniga
+    @bot_username avtomatik yoziladi (inline rejim ishga tushadi).
+    """
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=t(lang, "search_button"),
+                    switch_inline_query_current_chat="",
+                )
+            ]
+        ]
     )
 
 
