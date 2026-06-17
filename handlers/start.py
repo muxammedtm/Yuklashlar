@@ -25,17 +25,16 @@ def lang_keyboard() -> InlineKeyboardMarkup:
 
 
 def main_keyboard(lang: str) -> InlineKeyboardMarkup:
-    """Welcome xabari ostidagi tugmalar.
+    """Welcome xabari ostidagi «YouTube'dan qidirish» tugmasi.
 
-    «YouTube'dan qidirish» tugmasi bosilganda chat input maydoniga
-    @bot_username avtomatik yoziladi (inline rejim ishga tushadi).
+    Bosilganda yo'riqnoma chiqadi: nusxalanadigan @vid yozuvi bilan.
     """
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
                     text=t(lang, "search_button"),
-                    switch_inline_query_current_chat="",
+                    callback_data="yt_search",
                 )
             ]
         ]
@@ -65,6 +64,13 @@ async def set_lang(callback: CallbackQuery) -> None:
     await callback.message.answer(
         t(lang, "welcome"), reply_markup=main_keyboard(lang)
     )
+
+
+@router.callback_query(F.data == "yt_search")
+async def yt_search_guide(callback: CallbackQuery) -> None:
+    await callback.answer()
+    lang = await db.get_user_lang(callback.from_user.id) or "uz"
+    await callback.message.answer(t(lang, "yt_guide"))
 
 
 @router.message(Command("help"))
