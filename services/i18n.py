@@ -23,6 +23,16 @@ TEXTS = {
         ),
         "paste_button": "📋 Havola yuborish",
         "search_button": "🔎 YouTube'dan qidirish",
+        "yt_guide": (
+            "🔎 <b>YouTube'dan qidirish</b>\n\n"
+            "1️⃣ Quyidagi yozuvni bosing — u avtomatik nusxalanadi:\n\n"
+            "<code>@vid </code>\n\n"
+            "2️⃣ Uni xabar yozish joyiga qo'ying (paste).\n"
+            "3️⃣ Orqasidan kerakli video yoki qo'shiq nomini yozing.\n"
+            "   Masalan: <code>@vid mirjalol nematov anor</code>\n\n"
+            "4️⃣ Chiqgan ro'yxatdan kerakligini tanlang — havolasi shu yerga "
+            "keladi, so'ng formatni (video/audio) tanlaysiz."
+        ),
         "send_link_prompt": "🔗 Instagram / TikTok / YouTube havolasini yuboring:",
         "unsupported": (
             "❗️ Bu havola qo'llab-quvvatlanmaydi.\n"
@@ -77,6 +87,16 @@ TEXTS = {
         ),
         "paste_button": "📋 Отправить ссылку",
         "search_button": "🔎 Поиск на YouTube",
+        "yt_guide": (
+            "🔎 <b>Поиск на YouTube</b>\n\n"
+            "1️⃣ Нажмите на текст ниже — он скопируется автоматически:\n\n"
+            "<code>@vid </code>\n\n"
+            "2️⃣ Вставьте его в поле ввода сообщения (paste).\n"
+            "3️⃣ После него напишите название видео или песни.\n"
+            "   Например: <code>@vid mirjalol nematov anor</code>\n\n"
+            "4️⃣ Выберите нужное из списка — ссылка придёт сюда, "
+            "затем выберите формат (видео/аудио)."
+        ),
         "send_link_prompt": "🔗 Отправьте ссылку Instagram / TikTok / YouTube:",
         "unsupported": (
             "❗️ Эта ссылка не поддерживается.\n"
