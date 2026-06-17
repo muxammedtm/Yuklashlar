@@ -22,6 +22,7 @@ TEXTS = {
             "Til o'zgartirish: /til"
         ),
         "paste_button": "📋 Havola yuborish",
+        "search_button": "🔎 YouTube'dan qidirish",
         "send_link_prompt": "🔗 Instagram / TikTok / YouTube havolasini yuboring:",
         "unsupported": (
             "❗️ Bu havola qo'llab-quvvatlanmaydi.\n"
@@ -75,6 +76,7 @@ TEXTS = {
             "Сменить язык: /til"
         ),
         "paste_button": "📋 Отправить ссылку",
+        "search_button": "🔎 Поиск на YouTube",
         "send_link_prompt": "🔗 Отправьте ссылку Instagram / TikTok / YouTube:",
         "unsupported": (
             "❗️ Эта ссылка не поддерживается.\n"
